@@ -766,6 +766,7 @@ public class ArrayList<E> extends AbstractList<E>
     private class Itr implements Iterator<E> {
         int cursor;       //游标，下一个元素的索引，默认初始化为0
         int lastRet = -1; //上次访问的元素的位置
+        //赋初始值
         int expectedModCount = modCount;//迭代过程不运行修改数组，否则就抛出异常
 
         //是否还有下一个

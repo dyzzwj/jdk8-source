@@ -227,7 +227,8 @@ public class ThreadLocal<T> {
     static class ThreadLocalMap {
 
         /**
-         * 键值对实体的存储结构
+         * 键值对实体的存储结构  继承了弱引用 （发现即回收）
+         *
          */
         static class Entry extends WeakReference<ThreadLocal<?>> {
             /**
@@ -242,18 +243,22 @@ public class ThreadLocal<T> {
              * @param v v 作 value
              */
             Entry(ThreadLocal<?> k, Object v) {
+               // Entry指向ThreadLocal实例的是弱引用 发现即回收
                 super(k);
                 value = v;
             }
         }
 
         /**
-         * 初始容量，必须为 2 的幂
+         * 初始容量是16，必须为 2 的幂
          */
         private static final int INITIAL_CAPACITY = 16;
 
         /**
          * 存储 ThreadLocal 的键值对实体数组，长度必须为 2 的幂
+         * 区别于HashMap采用的链地址法，ThreadLocalMap采用的是开放地址法
+         *  链地址法：，即在一个位置已经有元素了，就采用链表把冲突的元素链接在该元素后面
+         *  开放地址法：即有冲突后，把要插入的元素放在要插入的位置后面为null的地方
          */
         private Entry[] table;
 
@@ -340,12 +345,14 @@ public class ThreadLocal<T> {
          * @return
          */
         private Entry getEntry(ThreadLocal<?> key) {
+            //计算索引位置
             int i = key.threadLocalHashCode & (table.length - 1);
             Entry e = table[i];
             // 若 e 不为空，并且 e 的 ThreadLocal 的内存地址和 key 相同，直接返回
             if (e != null && e.get() == key) {
                 return e;
             } else {
+                // e = null 或 e.get() != key
                 // 从 i 开始向后遍历找到键值对实体
                 return getEntryAfterMiss(key, i, e);
             }
@@ -362,21 +369,40 @@ public class ThreadLocal<T> {
         private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
             Entry[] tab = table;
             int len = tab.length;
-
+            /**
+             * e = null 或 e.get() != key
+             * 所以首先e如果为null的话，那么直接返回null
+             * 如果是不满足e.get() == key，那么进入while循环
+             * ThreadLocalMap采用的是开放地址法，即把要插入的元素放在要插入的位置后面为null的地方
+             * 所以下面的循环就是因为我们在第一次计算出来的i位置不一定存在key与我们想查找的key恰好相等的Entry，
+             * 所以只能不断在后面循环，来查找是不是被插到后面了，直到找到为null的元素，因为若是插入也是到null为止的
+             */
             while (e != null) {
                 ThreadLocal<?> k = e.get();
                 if (k == key) {
+                   // 如果k==key,那么代表找到了这个所需要的Entry
                     return e;
                 }
                 // 遇到了垃圾值
                 if (k == null) {
+                    /**
+                     *  k == null 因为k是弱引用v发现即回收 所以很有可能k被回收了，但其对应的value没被回收
+                     */
                     // 从索引 i 开始，遍历一段连续的元素，清理其中的垃圾值，并使各元素排序更紧凑
+                    /**
+                     * 如果k==null，那么证明这个Entry中key已经为null,那么这个Entry就是一个过期对象，这里调用expungeStaleEntry清理该Entry。
+                     * 这里解答了前面留下的一个坑，即ThreadLocal Ref销毁时，ThreadLocal实例由于只有Entry中的一条弱引用指着，那么就会被GC掉，
+                     * Entry的key没了，value可能会内存泄露的，其实在每一个get，set操作时都会不断清理掉这种key为null的Entry的。
+                     *
+                     */
                     expungeStaleEntry(i);
                 } else {
                     i = nextIndex(i, len);
                 }
                 e = tab[i];
             }
+
+            //e = null 直接返回null
             return null;
         }
 
@@ -393,6 +419,8 @@ public class ThreadLocal<T> {
             int i = key.threadLocalHashCode & (len - 1);
             // 遍历一段连续的元素，以查找匹配的 ThreadLocal 对象
             for (Entry e = tab[i]; e != null; e = tab[i = nextIndex(i, len)]) {
+                //tab[i]已经存在 发生hash冲突 采用链地址法
+
                 // 获取该哈希值处的ThreadLocal对象
                 ThreadLocal<?> k = e.get();
 
@@ -466,6 +494,7 @@ public class ThreadLocal<T> {
             // incremental rehashing due to garbage collector freeing
             // up refs in bunches (i.e., whenever the collector runs).
             int slotToExpunge = staleSlot;
+            //向前找到key为null的位置，记录为slotToExpunge,这里是为了后面的清理过程
             for (int i = prevIndex(staleSlot, len);
                  (e = tab[i]) != null;
                  i = prevIndex(i, len))
@@ -484,6 +513,7 @@ public class ThreadLocal<T> {
                 // The newly stale slot, or any other stale slot
                 // encountered above it, can then be sent to expungeStaleEntry
                 // to remove or rehash all of the other entries in run.
+                //我们从staleSlot起到下一个null为止，若是找到key和传入key相等的Entry，就给这个Entry赋新的value值，并且把它和staleSlot位置的Entry交换，然后调用CleanSomeSlots清理key为null的Entry。
                 if (k == key) {
                     e.value = value;
 
@@ -503,7 +533,7 @@ public class ThreadLocal<T> {
                 if (k == null && slotToExpunge == staleSlot)
                     slotToExpunge = i;
             }
-
+            //若是一直没有key和传入key相等的Entry，那么就在staleSlot处新建一个Entry。函数最后再清理一遍空key的Entry。
             // If key not found, put new entry in stale slot
             tab[staleSlot].value = null;
             tab[staleSlot] = new Entry(key, value);
@@ -524,10 +554,22 @@ public class ThreadLocal<T> {
             int len = tab.length;
 
             // 索引 staleSlot 处本身标识的就是一个垃圾值，所以需要首先清理掉
+            //主要是将i位置上的Entry的value设为null，Entry的引用也设为null，那么系统GC的时候自然会清理掉这块内存；
             tab[staleSlot].value = null;
             tab[staleSlot] = null;
             size--;
 
+            //扫描位置staleSlot之后，null之前的Entry数组，清除每一个key为null的Entry，同时若是key不为空，做rehash，调整其位置。
+            /**
+             * 为什么要做rehash呢?
+             * 因为我们在清理的过程中会把某个值tab[j]设为null，那么这个值后面的区域如果之前是连着前面的，那么下次循环查找时，就会只查到null(tab[j])为止。
+             *
+             * 举个例子就是：...,<key1(hash1), value1>, <key2(hash1), value2>,...（即key1和key2的hash值相同）
+             * 此时，若插入<key3(hash2), value3>，其hash计算的目标位置被<key2(hash1), value2>占了，于是往后寻找可用位置，hash表可能变为：
+             * ..., <key1(hash1), value1>, <key2(hash1), value2>, <key3(hash2), value3>, ...
+             * 此时，若<key2(hash1), value2>被清理，显然<key3(hash2), value3>应该往前移(即通过rehash调整位置)，否则若以key3查找hash表，将会找不到key3
+             *
+             */
             Entry e;
             int i;
             // 继续往后遍历连续的Entry数组，直到遇见一个空槽后停止遍历
@@ -542,6 +584,7 @@ public class ThreadLocal<T> {
                     size--;
                 } else {
                     int h = k.threadLocalHashCode & (len - 1);
+                    //rehash
                     if (h != i) {
                         tab[i] = null;
 
