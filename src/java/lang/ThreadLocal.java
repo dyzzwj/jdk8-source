@@ -326,8 +326,10 @@ public class ThreadLocal<T> {
                     @SuppressWarnings("unchecked")
                     ThreadLocal<Object> key = (ThreadLocal<Object>) e.get();
                     if (key != null) {
+                        //InheritableThreadLocal重新了这个方法 返回原值
                         Object value = key.childValue(e.value);
                         Entry c = new Entry(key, value);
+                        //计算hash位置，与ThreadLocal的set方法一样
                         int h = key.threadLocalHashCode & (len - 1);
                         while (table[h] != null)
                             h = nextIndex(h, len);

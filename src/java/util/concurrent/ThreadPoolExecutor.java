@@ -543,7 +543,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      *
      *  线程池中非核心线程闲置超时时长
      *  线程池维护线程所允许的空闲时间。当线程池中的线程数量大于corePoolSize的时候，如果这时没有新的任务提交，
-     *  核心线程外的线程不会立即销毁，而是会等待，直到等待的时间超过了keepAliveTime；
+     *  核心线程外的线程不会立即销毁，而是会等待，直到等待的时间超过了keepAliveTime才会销毁
      */
     private volatile long keepAliveTime;
 
@@ -645,6 +645,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         Worker(Runnable firstTask) {
             setState(-1); // inhibit interrupts until runWorker
             this.firstTask = firstTask;
+            //Worker是一个Runnable对象
             this.thread = getThreadFactory().newThread(this);
         }
 
@@ -996,6 +997,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 }
                 // 如果成功添加了 Worker，就可以启动 Worker 了
                 if (workerAdded) {
+                    //启动线程
                     t.start();
                     workerStarted = true;
                 }
@@ -1098,11 +1100,15 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 return null;
             }
 
+            //活跃线程数
             int wc = workerCountOf(c);
 
-            // Are workers subject to culling?
+            //活跃的线程数是否会被淘汰
             boolean timed = allowCoreThreadTimeOut || wc > corePoolSize;
 
+            /**
+             *   (timed && timedOut)) ：
+             */
             if ((wc > maximumPoolSize || (timed && timedOut))
                 && (wc > 1 || workQueue.isEmpty())) {
                 if (compareAndDecrementWorkerCount(c))
@@ -1111,6 +1117,10 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             }
 
             try {
+                /**
+                 *  如果允许 活跃的线程数被淘汰，即timed 为true，那就等待从任务队列获取任务，最大等待时间为keepAliveTime
+                 *  如果过了keepAliveTime还没有任务 那么r == null timedOut赋值为true，下一次循环的时候上面的if成立 淘汰多余的线程
+                 */
                 Runnable r = timed ? workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) : workQueue.take();
                 if (r != null)
                     return r;
@@ -1173,6 +1183,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         try {
             /**
              * 构造worker时传入的task不为空 或 从人物队列里获取的task不为空
+             * getTask()会从任务队列中获取任务， 在等待的时间超过了keepAliveTime时，会淘汰超过核心线程数的线程
              */
             while (task != null || (task = getTask()) != null) {
                 w.lock();
