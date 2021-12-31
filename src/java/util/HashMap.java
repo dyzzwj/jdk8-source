@@ -433,6 +433,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
         int n, i;
         //如果哈希表为空，调用resize()创建一个哈希表，并用变量n记录哈希表长度
         if ((tab = table) == null || (n = tab.length) == 0)
+            //会有线程安全问题
             n = (tab = resize()).length;
         /**
          * 如果指定参数hash在表中没有对应的桶，即为没有碰撞
@@ -445,7 +446,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
         else {// 桶中已经存在元素
             Node<K, V> e;
             K k;
-            // 比较桶中第一个元素(数组中的结点)的hash值相等，key相等
+            // 比较桶中第一个元素(数组中的结点)的hash值相等，key相等 先做一次简单的判断（顺便判断了桶中只有一个元素的情况）
             if (p.hash == hash &&
                     ((k = p.key) == key || (key != null && key.equals(k))))
                 // 将第一个元素赋值给e，用e来记录

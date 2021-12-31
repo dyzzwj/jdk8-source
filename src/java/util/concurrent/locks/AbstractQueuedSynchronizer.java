@@ -283,6 +283,7 @@ import sun.misc.Unsafe;
  *   }
  * }}</pre>
  *
+ *  抽象队列同步器
  * @since 1.5
  * @author Doug Lea
  */
