@@ -520,6 +520,10 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * 5、如果table[i]的节点是链表节点，则检查table的第i个位置的链表是否需要转化为数，如果需要则调用treeifyBin函数进行转化
      */
     final V putVal(K key, V value, boolean onlyIfAbsent) {
+        /**
+         * 因为concurrenthashmap它们是用于多线程的，并发的 ，如果map.get(key)得到了null，不能判断到底是映射的value是null,还是因为没有找到对应的key而为空
+         * 而用于单线程状态的hashmap却可以用containKey（key） 去判断到底是否包含了这个null
+         */
         if (key == null || value == null) throw new NullPointerException();// key和value不允许null
         int hash = spread(key.hashCode());//两次hash，减少hash冲突，可以均匀分布
         int binCount = 0;//i处结点标志，0: 未加入新结点, 2: TreeBin或链表结点数, 其它：链表结点数。主要用于每次加入结点后查看是否要由链表转为红黑树
@@ -536,13 +540,15 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
              */
             else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
                 if (casTabAt(tab, i, null,
-                        new Node<K, V>(hash, key, value, null)))
+                        new Node<K, V>(hash, key, value, null)))//tab[i]这一个位置上赋值的并发问题通过cas解决
                     break;                   // no lock when adding to empty bin
             } else if ((fh = f.hash) == MOVED)//检查table[i]的节点的hash是否等于MOVED，如果等于，则检测到正在扩容，则帮助其扩容
                 tab = helpTransfer(tab, f);
             else {//table[i]的节点的hash值不等于MOVED。
                 V oldVal = null;
                 // 针对首个节点进行加锁操作，而不是segment，进一步减少线程冲突
+                //加锁，注意锁对象
+                //加完锁后再去判断一下 f时候是tab[i]位置的头结点（对于链表）或根节点（对于红黑树）
                 synchronized (f) {
                     if (tabAt(tab, i) == f) {
                         if (fh >= 0) {
@@ -580,6 +586,8 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                 }
                 if (binCount != 0) {
                     // 如果节点数>＝8，那么转换链表结构为红黑树结构
+                    //binCount：1、链表遍历完毕，会到这里，此时binCount记录当前遍历链表的长度
+                    //2、如果在链表找到了跟插入的key相同的Node，也回到这里
                     if (binCount >= TREEIFY_THRESHOLD)
                         treeifyBin(tab, i);//若length<64,直接tryPresize,两倍table.length;不转红黑树
                     if (oldVal != null)
@@ -1678,6 +1686,8 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /* ---------------- Special Nodes -------------- */
 
     /**
+     *  扩容节点，只是在扩容阶段使用的节点，主要作为一个标记，在处理并发时起着关键作用，有了ForwardingNodes，也是ConcurrentHashMap有了分段的特性，提高了并发效率
+     *
      * A node inserted at head of bins during transfer operations.
      */
     static final class ForwardingNode<K, V> extends Node<K, V> {
@@ -2185,6 +2195,8 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /* ---------------- TreeNodes -------------- */
 
     /**
+     *  用于树结构中，红黑树的节点（当链表长度大于8时转化为红黑树），此节点不能直接放入桶内，只能是作为红黑树的节点
+     *
      * Nodes for use in TreeBins
      */
     static final class TreeNode<K, V> extends Node<K, V> {
@@ -2243,6 +2255,8 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /* ---------------- TreeBins -------------- */
 
     /**
+     *  TreeNode的代理节点（头结点），用于维护TreeNodes，ConcurrentHashMap的红黑树存放的是TreeBin
+     *
      * TreeNodes used at the heads of bins. TreeBins do not hold user
      * keys or values, but instead point to list of TreeNodes and
      * their root. They also maintain a parasitic read-write lock
