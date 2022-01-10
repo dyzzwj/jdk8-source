@@ -766,7 +766,8 @@ public class ArrayList<E> extends AbstractList<E>
     private class Itr implements Iterator<E> {
         int cursor;       //游标，下一个元素的索引，默认初始化为0
         int lastRet = -1; //上次访问的元素的位置
-        //赋初始值
+        //赋初始值 当Itr对象被创建的时候，expectedModCount的值会等于modCount变量的值。 赋初始值
+        //在迭代集合元素的过程中，迭代器通过检查expectedModCount和modCount的值是否相同，以防止出现并发修改
         int expectedModCount = modCount;//迭代过程不运行修改数组，否则就抛出异常
 
         //是否还有下一个
@@ -828,6 +829,7 @@ public class ArrayList<E> extends AbstractList<E>
 
         //检查数组是否被修改
         final void checkForComodification() {
+            //当迭代器工作的过程中，不允许集合擅自修改(添加或删除元素)集合结构，如果修改了会导致modCount值变化，从而不会等于expectedModCount，那么迭代器就会抛出并发修改异常
             if (modCount != expectedModCount)
                 throw new ConcurrentModificationException();
         }
