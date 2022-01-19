@@ -1,6 +1,8 @@
 package java.lang;
 
 /**
+ *
+ *  由当前线程创建的线程，将会继承当前线程里 ThreadLocal 保存的值。
  * 创建允许子线程继承的 ThreadLocal
  *
  * @see ThreadLocal

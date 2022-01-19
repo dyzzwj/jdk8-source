@@ -1751,11 +1751,24 @@ public abstract class AbstractQueuedSynchronizer
      * a condition queue, is now waiting to reacquire on sync queue.
      * @param node the node
      * @return true if is reacquiring
+     *
+     * // 节点是否在同步队列中
      */
     final boolean isOnSyncQueue(Node node) {
+        // 如果状态为等待状态，或者前驱节点为空，不在同步队列
         if (node.waitStatus == Node.CONDITION || node.prev == null)
             return false;
+        //
+        /**
+         *   无论是同步队列还是等待队列 其节点都是Node
+         *   prev：前驱节点，当节点加入同步队列的时候被设置（尾部添加）
+         *   next：后继节点
+         *   nextWaiter：在作为同步队列节点时，nextWaiter可能有两个值：EXCLUSIVE、SHARED标识当前节点是独占模式还是共享模式；在作为等待队列节点使用时，nextWaiter保存后继节点。
+         *   AQS同步队列中的节点节点prev！=null,next只有最后一个=null。
+         *   Condition节点，prev=next=null，nextWaiter只有最有一个=null。
+         */
         if (node.next != null) // If has successor, it must be on queue
+            //后继节点不为空，则在同步队列中  等待队列的节点next一点为空
             return true;
         /*
          * node.prev can be non-null, but not yet on queue because
@@ -1765,6 +1778,7 @@ public abstract class AbstractQueuedSynchronizer
          * unless the CAS failed (which is unlikely), it will be
          * there, so we hardly ever traverse much.
          */
+        // 从同步队列尾部往前找，判断当前节点是否在同步队列中
         return findNodeFromTail(node);
     }
 
@@ -1776,10 +1790,13 @@ public abstract class AbstractQueuedSynchronizer
     private boolean findNodeFromTail(Node node) {
         Node t = tail;
         for (;;) {
+            // 当前节点为尾节点，在阻塞队列
             if (t == node)
                 return true;
+            // 尾节点为空，不在阻塞队列
             if (t == null)
                 return false;
+            // 尾部节点前移
             t = t.prev;
         }
     }
@@ -1795,6 +1812,9 @@ public abstract class AbstractQueuedSynchronizer
         /*
          * If cannot change waitStatus, the node has been cancelled.
          */
+        /**
+         * 使用cas将node的状态由CONDITION改为0
+         */
         if (!compareAndSetWaitStatus(node, Node.CONDITION, 0))
             return false;
 
@@ -1804,9 +1824,12 @@ public abstract class AbstractQueuedSynchronizer
          * attempt to set waitStatus fails, wake up to resync (in which
          * case the waitStatus can be transiently and harmlessly wrong).
          */
+        //进同步队列  返回同步队列中当前节点的前驱
         Node p = enq(node);
         int ws = p.waitStatus;
+        //ws > 0代表被取消  || 将前驱的waitStatus改为SIGNAL失败了
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
+            //唤醒等待队列的第一个节点
             LockSupport.unpark(node.thread);
         return true;
     }
@@ -1844,13 +1867,16 @@ public abstract class AbstractQueuedSynchronizer
         boolean failed = true;
         try {
             int savedState = getState();
+            //释放锁资源
             if (release(savedState)) {
                 failed = false;
+                // 释放锁成功，返回同步状态
                 return savedState;
             } else {
                 throw new IllegalMonitorStateException();
             }
         } finally {
+            // 释放锁失败，状态置为CANCELLED
             if (failed)
                 node.waitStatus = Node.CANCELLED;
         }
@@ -1953,9 +1979,16 @@ public abstract class AbstractQueuedSynchronizer
      */
     public class ConditionObject implements Condition, java.io.Serializable {
         private static final long serialVersionUID = 1173984872572414699L;
-        /** First node of condition queue. */
+
+        /**
+         * First node of condition queue.
+         *  等待队列的头结点
+         */
         private transient Node firstWaiter;
-        /** Last node of condition queue. */
+        /**
+         * Last node of condition queue.
+         *  等待队列的尾结点
+         */
         private transient Node lastWaiter;
 
         /**
@@ -1970,16 +2003,27 @@ public abstract class AbstractQueuedSynchronizer
          * @return its new wait node
          */
         private Node addConditionWaiter() {
+            //等待队列的尾结点
             Node t = lastWaiter;
             // If lastWaiter is cancelled, clean out.
+            //尾节点!=-2就清除，Condition里面的节点状态只能是0和-2，否则就是无效节点
+            // 如果最后一个节点不是空节点，但是状态不是条件等待状态
             if (t != null && t.waitStatus != Node.CONDITION) {
+                // 移除状态为已取消的节点
                 unlinkCancelledWaiters();
                 t = lastWaiter;
             }
+            // 将当前线程放入新创建的节点中
+            //创建新的节点放到Condition队列，移除AQS节点。
             Node node = new Node(Thread.currentThread(), Node.CONDITION);
+
+            //AQS节点prev！=null,next只有最后一个=null。
+            //Condition节点，prev=next=null，nextWaiter只有最有一个=null。
+            // 如果等待队列为空，等待队列队头置为当前新建节点
             if (t == null)
                 firstWaiter = node;
             else
+                // 否则将新创建节点放在队列尾部
                 t.nextWaiter = node;
             lastWaiter = node;
             return node;
@@ -1991,12 +2035,20 @@ public abstract class AbstractQueuedSynchronizer
          * to inline the case of no waiters.
          * @param first (non-null) the first node on condition queue
          */
+
+        /**
+         * 唤醒 Condition Queue 里面的头节点, 注意这里的唤醒只是将 Node 从 Condition Queue 转到 Sync Queue 里面(这时的 Node 也还是能被 Interrupt)
+         */
+
         private void doSignal(Node first) {
             do {
-                if ( (firstWaiter = first.nextWaiter) == null)
+                if ( (firstWaiter = first.nextWaiter) == null) // 1. 将 first.nextWaiter 赋值给 nextWaiter 为下次做准备
+                    // 2. 这时若 nextWaiter == null, 则说明 Condition 为空了, 所以直接置空 lastWaiter
                     lastWaiter = null;
+
+                // 3.  first.nextWaiter == null 是判断 Node 从 Condition queue 转移到 Sync Queue 里面是通过 signal 还是 timeout/interrupt
                 first.nextWaiter = null;
-            } while (!transferForSignal(first) &&
+            } while (!transferForSignal(first) &&  // 4. 调用  transferForSignal将 first（队首） 转移到 Sync Queue （队尾）,转移成功则推出循序安 返回不成功的话, 将 firstWaiter 赋值给 first
                      (first = firstWaiter) != null);
         }
 
@@ -2009,6 +2061,7 @@ public abstract class AbstractQueuedSynchronizer
             do {
                 Node next = first.nextWaiter;
                 first.nextWaiter = null;
+                //依次把等待队列的队首转移到同步队列的队尾
                 transferForSignal(first);
                 first = next;
             } while (first != null);
@@ -2029,12 +2082,16 @@ public abstract class AbstractQueuedSynchronizer
          * storms.
          */
         private void unlinkCancelledWaiters() {
+            // 移除状态为已取消的节点
+
             Node t = firstWaiter;
             Node trail = null;
             while (t != null) {
                 Node next = t.nextWaiter;
+                // 如果状态不是条件等待
                 if (t.waitStatus != Node.CONDITION) {
                     t.nextWaiter = null;
+                    //删除next引用
                     if (trail == null)
                         firstWaiter = next;
                     else
@@ -2054,15 +2111,23 @@ public abstract class AbstractQueuedSynchronizer
          * Moves the longest-waiting thread, if one exists, from the
          * wait queue for this condition to the wait queue for the
          * owning lock.
-         *
          * @throws IllegalMonitorStateException if {@link #isHeldExclusively}
          *         returns {@code false}
          */
+
+        /**
+         *  唤醒Condition队列第一个非CANCELLED节点
+         *  将 Condition queue 的头节点转移到 Sync Queue 里面
+         *  在进行调用 signal 时, 当前的线程必须获取了 独占的锁
+         */
         public final void signal() {
+
+            //判断当前持有锁的线程是不是当前线程
             if (!isHeldExclusively())
                 throw new IllegalMonitorStateException();
             Node first = firstWaiter;
             if (first != null)
+                //进行转移
                 doSignal(first);
         }
 
@@ -2074,6 +2139,7 @@ public abstract class AbstractQueuedSynchronizer
          *         returns {@code false}
          */
         public final void signalAll() {
+            //判断当前持有锁的线程是不是当前线程
             if (!isHeldExclusively())
                 throw new IllegalMonitorStateException();
             Node first = firstWaiter;
@@ -2112,9 +2178,18 @@ public abstract class AbstractQueuedSynchronizer
          * interrupted while blocked waiting to re-acquire.
          */
 
+        /**
+         * 下面两个是用于追踪 调用 awaitXXX 方法时线程有没有被中断过
+         * 主要的区别是
+         *      REINTERRUPT: 代表线程是在 signal 后被中断的        (REINTERRUPT = re-interrupt 再次中断 最后会调用 selfInterrupt)
+         *      THROW_IE: 代表在接受 signal 前被中断的, 则直接抛出异常 (Throw_IE = throw inner exception)
+         */
+
         /** Mode meaning to reinterrupt on exit from wait */
+        /** 在离开 awaitXX方法, 退出前再次 自我中断 (调用 selfInterrupt)*/
         private static final int REINTERRUPT =  1;
         /** Mode meaning to throw InterruptedException on exit from wait */
+        /** 在离开 awaitXX方法, 退出前再次 自我中断 (调用 selfInterrupt)*/
         private static final int THROW_IE    = -1;
 
         /**
@@ -2122,7 +2197,17 @@ public abstract class AbstractQueuedSynchronizer
          * before signalled, REINTERRUPT if after signalled, or
          * 0 if not interrupted.
          */
+
+        /**
+         * 检查 在 awaitXX 方法中的这次唤醒是否是中断引起的
+         * 若是中断引起的, 则将 Node 从 Condition Queue 转移到 Sync Queue 里面
+         * 返回值的区别:
+         *      0: 此次唤醒是通过 signal -> LockSupport.unpark
+         *      THROW_IE: 此次的唤醒是通过 interrupt, 并且 在 接受 signal 之前
+         *      REINTERRUPT: 线程的唤醒是 接受过 signal 而后又被中断
+         */
         private int checkInterruptWhileWaiting(Node node) {
+            //Thread.interrupted()：默认为false
             return Thread.interrupted() ?
                 (transferAfterCancelledWait(node) ? THROW_IE : REINTERRUPT) :
                 0;
@@ -2154,21 +2239,56 @@ public abstract class AbstractQueuedSynchronizer
          * </ol>
          */
         public final void await() throws InterruptedException {
+            //Condition对队列的操作没考虑并发，开发人员要保证对应的操作都是在线程获得锁之后才进行的 不然在fullyRelease时会抛异常
+
+            //校验线程中断标志位 中断标记默认为false
             if (Thread.interrupted())
                 throw new InterruptedException();
+
+            //将当前线程添加到等待队列
             Node node = addConditionWaiter();
+            /**
+             * 释放锁资源（与Object类的wait()保持一致）；唤醒当前线程的节点（头节点）的后继节点
+             *  释放锁资源时会校验当前线程是不是持有锁的线程
+             *  所以 在调用Condition.await()方法之前 必须先调用Lock.lock()方法获取独占锁
+             */
             int savedState = fullyRelease(node);
+            //await开始一直到上面一行，都是线程安全的，下面就不线程安全了
+
+
             int interruptMode = 0;
+
+            /**
+             *   判断当前线程是否在 Sync Queue 里面(这里 Node 从 Condtion Queue 里面转移到 Sync Queue 里面有两种可能
+             *   (1) 其他线程调用 signal 进行转移
+             *   (2) 当前线程被中断而进行Node的转移(就在checkInterruptWhileWaiting里面进行转移))
+             */
             while (!isOnSyncQueue(node)) {
+                //节点不在同步队列
+                //阻塞当前线程
                 LockSupport.park(this);
+                // 如果中断被唤醒，循环停止
+                // 判断此次线程的唤醒是否因为线程被中断,
+                // 若是被中断, 则会在checkInterruptWhileWaiting的transferAfterCancelledWait进行节点的转移;
+                // 返回值interruptMode != 0
+
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
+                    // 通过线程中断的方式进行唤醒, 并且已经进行node的转移, 转移到 Sync Queue里面
                     break;
             }
+            //节点在同步队列中
+            // 调用 acquireQueued在Sync Queue里面进行独占锁的获取, 返回值表明在获取的过程中有没有被中断过
             if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
                 interruptMode = REINTERRUPT;
+            /**
+             * 通过 "node.nextWaiter != null" 判断 线程的唤醒是中断还是 signal,
+             * 因为通过中断唤醒的话, 此刻代表线程的 Node 在 Condition Queue 与 Sync Queue 里面都会存在
+             */
             if (node.nextWaiter != null) // clean up if cancelled
                 unlinkCancelledWaiters();
+            // 通过中断的方式唤醒线程
             if (interruptMode != 0)
+                // 根据 interruptMode 的类型决定是抛出异常, 还是自己中断一下
                 reportInterruptAfterWait(interruptMode);
         }
 

@@ -163,6 +163,9 @@ public class Arrays {
      * @throws IllegalArgumentException if {@code fromIndex > toIndex}
      * @throws ArrayIndexOutOfBoundsException
      *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     *     基本数据类型 使用快排  因为快排无法做到稳定性 而稳定性对于基本数据类型没用
+     *
      */
     public static void sort(int[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
@@ -1238,6 +1241,9 @@ public class Arrays {
      * @throws IllegalArgumentException (optional) if the natural
      *         ordering of the array elements is found to violate the
      *         {@link Comparable} contract
+     *
+     *         引用数据类型的排序使用归并排序 归并排序可以做到稳定性
+     *
      */
     public static void sort(Object[] a) {
         if (LegacyMergeSort.userRequested)

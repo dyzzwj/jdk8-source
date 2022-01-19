@@ -457,7 +457,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 // 当前桶中无该键值对，且桶是链表结构，按照链表结构插入到尾部
             else {
                 for (int binCount = 0; ; ++binCount) {
-                    // 遍历到链表尾部
+                    // 遍历到链表尾部  尾插法
                     if ((e = p.next) == null) {
                         p.next = newNode(hash, key, value, null);
                         // 检查链表长度是否达到阈值，达到将该槽位节点组织形式转为红黑树
@@ -568,7 +568,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                         newTab[e.hash & (newCap - 1)] = e;
                         //如果旧桶中的结构为红黑树
                     else if (e instanceof TreeNode)
-                        //将树中的node分离
+                        //将树中的node分离 红黑树退化为链表
                         ((TreeNode<K, V>) e).split(this, newTab, j, oldCap);
                     else {  //如果旧桶中的结构为链表,链表重排，jdk1.8做的一系列优化
                         Node<K, V> loHead = null, loTail = null;
