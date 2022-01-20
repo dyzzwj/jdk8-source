@@ -162,12 +162,17 @@ public class CountDownLatch {
         private static final long serialVersionUID = 4982264981922014374L;
 
         Sync(int count) {
+            /**
+             * setState()方法是AQS提供的state变量的写方法， state变量被volatile修饰，由于volatile的
+             * happen-before规则，被 volatile 修饰的变量单独读写操作具有可见性和有序性
+             */
             setState(count);
         }
 
         int getCount() {
             return getState();
         }
+
 
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
@@ -176,11 +181,16 @@ public class CountDownLatch {
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
             for (;;) {
+
                 int c = getState();
+                // 如果state同步变量值已经是0，则返回false
                 if (c == 0)
                     return false;
+                // 将state同步变量值进行减一
                 int nextc = c-1;
+                // 使用CAS方法更新state变量值
                 if (compareAndSetState(c, nextc))
+                    // 如果nextc等于0，代表此时state同步变量值为0了，返回true
                     return nextc == 0;
             }
         }
@@ -288,6 +298,7 @@ public class CountDownLatch {
      * <p>If the current count equals zero then nothing happens.
      */
     public void countDown() {
+        // 调用Sync内部类的父类AQS的 releaseShared()共享锁释放模版方法
         sync.releaseShared(1);
     }
 
