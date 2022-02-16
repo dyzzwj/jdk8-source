@@ -212,6 +212,7 @@ public class CyclicBarrier {
             }
 
             int index = --count;
+            //所有线程都到达了 栅栏
             if (index == 0) {  // tripped
                 boolean ranAction = false;
                 try {
@@ -219,6 +220,7 @@ public class CyclicBarrier {
                     if (command != null)
                         command.run();
                     ranAction = true;
+                    //下一轮 唤醒其他已到达栅栏的线程 开启下一轮
                     nextGeneration();
                     return 0;
                 } finally {
@@ -227,6 +229,8 @@ public class CyclicBarrier {
                 }
             }
 
+
+            //还没都到达栅栏 等待
             // loop until tripped, broken, interrupted, or timed out
             for (;;) {
                 try {

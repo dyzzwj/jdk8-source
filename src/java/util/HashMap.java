@@ -466,6 +466,8 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                         break;
                     }
                     // 链表节点的<key, value>与put操作<key, value>相同时，不做重复操作，跳出循环
+                    //判断key完全相等的条件（需要覆盖）：hash值相等并且（==判断相等或equals判断相等）
+
                     if (e.hash == hash &&
                             ((k = e.key) == key || (key != null && key.equals(k))))
                         break;

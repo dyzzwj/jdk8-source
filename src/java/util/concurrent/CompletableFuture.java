@@ -1600,7 +1600,9 @@ public class CompletableFuture<T> implements Future<T>, CompletionStage<T> {
     static <U> CompletableFuture<U> asyncSupplyStage(Executor e,
                                                      Supplier<U> f) {
         if (f == null) throw new NullPointerException();
+        //创建一个用于返回的CompletableFuture。
         CompletableFuture<U> d = new CompletableFuture<U>();
+        //构造一个AsyncSupply，并将创建的CompletableFuture作为构造参数传入
         e.execute(new AsyncSupply<U>(d, f));
         return d;
     }
