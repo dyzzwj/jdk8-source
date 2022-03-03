@@ -413,6 +413,8 @@ public class Proxy implements java.io.Serializable {
             throw new IllegalArgumentException("interface limit exceeded");
         }
 
+        //意思是：如果代理类被指定的类加载器loader定义了，并实现了给定的接口interfaces，
+        //那么就返回缓存的代理类对象，否则使用ProxyClassFactory创建代理类。
         // If the proxy class defined by the given loader implementing
         // the given interfaces exists, this will simply return the cached copy;
         // otherwise, it will create the proxy class via the ProxyClassFactory
@@ -705,20 +707,31 @@ public class Proxy implements java.io.Serializable {
                                           InvocationHandler h)
         throws IllegalArgumentException
     {
-        Objects.requireNonNull(h);
 
+        /**
+         * loader：类加载器，类加载器用于加载代理类
+         * interfaces：被代理类实现的接口集合。有了它，代理类就可以实现被代理类的所有接口。
+         */
+
+        //检验handler对象不能为空
+        Objects.requireNonNull(h);
+        //接口的类对象拷贝一份（接口也是一个对象，是一个类名为Class的对象）
         final Class<?>[] intfs = interfaces.clone();
+
+        //安全检查，不是重点
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             checkProxyAccess(Reflection.getCallerClass(), loader, intfs);
         }
 
-        /*
+        /**
+         *  查询（在缓存中已经有）或生成指定的代理类的class对象。
          * Look up or generate the designated proxy class.
          */
         Class<?> cl = getProxyClass0(loader, intfs);
 
         /*
+            用指定的调用处理程序（什么程序？）调用其（谁的？）构造函数
          * Invoke its constructor with the designated invocation handler.
          */
         try {
@@ -726,6 +739,8 @@ public class Proxy implements java.io.Serializable {
                 checkNewProxyPermission(Reflection.getCallerClass(), cl);
             }
 
+            //返回constructorParams的公共构造函数
+            //参数constructorParames为常量值：private static final Class<?>[] constructorParams = { InvocationHandler.class };
             final Constructor<?> cons = cl.getConstructor(constructorParams);
             final InvocationHandler ih = h;
             if (!Modifier.isPublic(cl.getModifiers())) {
@@ -736,6 +751,7 @@ public class Proxy implements java.io.Serializable {
                     }
                 });
             }
+            //这里生成了代理对象，关于这里的详解：https://www.cnblogs.com/ferryman/p/12089210.html
             return cons.newInstance(new Object[]{h});
         } catch (IllegalAccessException|InstantiationException e) {
             throw new InternalError(e.toString(), e);
