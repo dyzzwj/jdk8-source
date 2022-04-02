@@ -1,4 +1,4 @@
-package com.dyzwj;
+package com.dyzwj.threadlocal;
 
 public class CustomThreadLocal1 {
 

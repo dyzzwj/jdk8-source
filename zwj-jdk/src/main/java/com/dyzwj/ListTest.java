@@ -1,10 +1,9 @@
 package com.dyzwj;
 
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 /**
  * 并发修改异常
@@ -13,6 +12,18 @@ public class ListTest {
 
 
     public static void main(String[] args) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date parse = null;
+        try {
+            parse = sdf.parse("2022-03-10 10:00:00");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        if (parse.before(new Date())){
+            System.out.println(".......");
+        }
+
+
         test1();
 //        test2();
 //        test3();
@@ -100,7 +111,11 @@ public class ListTest {
             }
         }
         gameList.forEach(System.out::println);
+
+
+
     }
+
 
 
 
