@@ -247,6 +247,7 @@ public class Throwable implements Serializable {
      * the stack trace data in the newly created throwable.
      */
     public Throwable() {
+        // 在默认构造函数中不会给detailMessage属性赋值
         fillInStackTrace();
     }
 
@@ -263,6 +264,7 @@ public class Throwable implements Serializable {
      */
     public Throwable(String message) {
         fillInStackTrace();
+        // 直接将参数赋值给detailMessage
         detailMessage = message;
     }
 
@@ -285,6 +287,7 @@ public class Throwable implements Serializable {
      */
     public Throwable(String message, Throwable cause) {
         fillInStackTrace();
+        // 直接将参数赋值给detailMessage
         detailMessage = message;
         this.cause = cause;
     }
@@ -308,6 +311,7 @@ public class Throwable implements Serializable {
      */
     public Throwable(Throwable cause) {
         fillInStackTrace();
+        // 当传入的Throwable对象不为空时，为detailMessage赋值
         detailMessage = (cause==null ? null : cause.toString());
         this.cause = cause;
     }
@@ -361,6 +365,7 @@ public class Throwable implements Serializable {
         } else {
             stackTrace = null;
         }
+        // 直接将参数赋值给detailMessage
         detailMessage = message;
         this.cause = cause;
         if (!enableSuppression)
