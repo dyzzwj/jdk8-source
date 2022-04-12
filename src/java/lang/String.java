@@ -85,6 +85,7 @@ import java.util.regex.PatternSyntaxException;
 public final class String implements java.io.Serializable, Comparable<String>, CharSequence {
     /**
      * String底层是使用字符数组存储的
+     * jdk9中 改成byte[]
      */
     private final char value[];
 

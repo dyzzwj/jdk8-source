@@ -114,8 +114,10 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     @SuppressWarnings("unchecked")
     private V report(int s) throws ExecutionException {
+        //设置`outcome`
         Object x = outcome;
         if (s == NORMAL)
+            //返回`outcome`
             return (V)x;
         if (s >= CANCELLED)
             throw new CancellationException();
@@ -246,6 +248,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
      */
     protected void setException(Throwable t) {
         if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
+            //将异常对象赋予outcome，记住这个outcome， 见FutureTak.get()
             outcome = t;
             UNSAFE.putOrderedInt(this, stateOffset, EXCEPTIONAL); // final state
             finishCompletion();
@@ -268,6 +271,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
                 } catch (Throwable ex) {
                     result = null;
                     ran = false;
+                    //在此方法中设置了异常信息
                     setException(ex);
                 }
                 if (ran)

@@ -1182,6 +1182,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         boolean completedAbruptly = true;
         try {
             /**
+             *  //这里就是线程可以重用的原因，循环+条件判断，不断从队列中取任务
+             *   还有一个问题就是非核心线程的超时删除是怎么解决的 主要就是getTask方法()见下文③
              * 构造worker时传入的task不为空 或 从人物队列里获取的task不为空
              * getTask()会从任务队列中获取任务， 在等待的时间超过了keepAliveTime时，会淘汰超过核心线程数的线程
              */
@@ -1194,7 +1196,13 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                     beforeExecute(wt, task);
                     Throwable thrown = null;
                     try {
-                        task.run();
+                        /**
+                         * 如果是execute(Runnable )的任务  task就是Runnable的实现类
+                         * 如果是submit(Callable)提交的任务 task就是FutureTask类型
+                         */
+                        task.run(); //如果是futuretask的run,里面是吞掉了异常，不会有异常抛出，
+
+                        //异常处理
                     } catch (RuntimeException x) {
                         thrown = x; throw x;
                     } catch (Error x) {
@@ -1202,6 +1210,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                     } catch (Throwable x) {
                         thrown = x; throw new Error(x);
                     } finally {
+                        //execute的方式可以重写此方法处理异常
                         afterExecute(task, thrown);
                     }
                 } finally {
@@ -1210,8 +1219,10 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                     w.unlock();
                 }
             }
+            //出现异常时completedAbruptly不会被修改为false
             completedAbruptly = false;
         } finally {
+            //如果如果completedAbruptly值为true，则出现异常，则添加新的Worker处理后边的线程
             processWorkerExit(w, completedAbruptly);
         }
     }
