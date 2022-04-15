@@ -2029,8 +2029,10 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 return;
             if (root.parent != null)
                 root = root.root();
+            // 在红黑树的root节点为空 或者root的右节点、root的左节点、root左节点的左节点为空时 说明树都比较小了
             if (root == null || root.right == null ||
                     (rl = root.left) == null || rl.left == null) {
+                //红黑树退化为链表
                 tab[index] = first.untreeify(map);  // too small
                 return;
             }
