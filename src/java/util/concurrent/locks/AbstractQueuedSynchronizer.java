@@ -741,7 +741,9 @@ public abstract class AbstractQueuedSynchronizer
          * 3. compareAndSetTail成功
          * 4. 此时这里的Node s = node.next读出来s == null，但事实上node已经不是tail，它有后继了!
          */
+        //当前节点的后继
         Node s = node.next;
+        //waitStatus > 0表示CANCELLED
         if (s == null || s.waitStatus > 0) {
             s = null;
             for (Node t = tail; t != null && t != node; t = t.prev)
