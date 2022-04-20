@@ -173,7 +173,7 @@ public class ArrayList<E> extends AbstractList<E>
     private void ensureExplicitCapacity(int minCapacity) {
         modCount++;
 
-        // 如果最小需要空间比elementData的内存空间要大，则需要扩容
+        // 如果最小需要空间比elementData的长度要大，则需要扩容
         if (minCapacity - elementData.length > 0)
             grow(minCapacity);
     }
@@ -404,7 +404,7 @@ public class ArrayList<E> extends AbstractList<E>
     public void add(int index, E element) {
         // 判断index是否越界
         rangeCheckForAdd(index);
-        // 扩容
+        // 扩容 size：元素个数
         ensureCapacityInternal(size + 1);  // Increments modCount!!
         //public static void arraycopy(Object src, int srcPos, Object dest, int destPos, int length)
         //src:源数组； srcPos:源数组要复制的起始位置； dest:目的数组； destPos:目的数组放置的起始位置； length:复制的长度
